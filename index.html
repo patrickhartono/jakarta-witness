@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Jakarta Witness</title>
+    <meta
+      name="description"
+      content="Jakarta Witness — a web-based AI interactive artwork making machine cognition visible."
+    />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%230a0a0a'/%3E%3Crect x='2' y='6' width='5' height='3' fill='%23d4a574'/%3E%3Crect x='9' y='8' width='4' height='3' fill='%2374c4d4'/%3E%3C/svg%3E"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap"
+    />
+    <!-- styles.css is imported by src/main.js so Vite bundles + hashes it -->
+
+  </head>
+  <body>
+    <!-- Loading screen: model download progress -->
+    <div id="loading-screen" class="loading-screen">
+      <div class="loading-inner">
+        <div class="loading-title">JAKARTA WITNESS</div>
+        <div class="loading-subtitle">INITIALIZING MACHINE WITNESS</div>
+        <div class="progress-track">
+          <div id="progress-bar" class="progress-bar"></div>
+        </div>
+        <div id="loading-status" class="loading-status">Detecting hardware capabilities…</div>
+      </div>
+    </div>
+
+    <!-- WebGPU-unavailable fallback (hidden by default) -->
+    <div id="fallback-screen" class="fallback-screen" hidden>
+      <div class="fallback-inner">
+        <div class="loading-title">JAKARTA WITNESS</div>
+        <div class="fallback-message">
+          <p>This artwork requires <strong>WebGPU</strong>, which is not available in this browser.</p>
+          <p>
+            Please open it in a recent version of <strong>Google Chrome</strong> or
+            <strong>Microsoft Edge</strong> on desktop.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main three-section vertical artwork -->
+    <main id="artwork" class="artwork" hidden>
+      <!-- TOP — REALITY -->
+      <section class="section section-reality" id="section-reality">
+        <div class="video-stage" id="video-stage">
+          <video
+            id="traffic-video"
+            class="traffic-video"
+            muted
+            loop
+            playsinline
+            preload="auto"
+          ></video>
+          <canvas id="overlay-canvas" class="overlay-canvas"></canvas>
+        </div>
+        <div id="counter-badges" class="counter-badges"></div>
+        <div class="section-tag">REALITY</div>
+      </section>
+
+      <div class="divider"></div>
+
+      <!-- MIDDLE — THOUGHT -->
+      <section class="section section-thought" id="section-thought">
+        <div id="thought-text" class="thought-text"></div>
+        <div class="section-tag">THOUGHT</div>
+      </section>
+
+      <div class="divider"></div>
+
+      <!-- BOTTOM — REDUCTION -->
+      <section class="section section-reduction" id="section-reduction">
+        <div id="simulation-container" class="simulation-container"></div>
+        <div class="section-tag">REDUCTION</div>
+      </section>
+    </main>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

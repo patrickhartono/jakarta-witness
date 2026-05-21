@@ -1,0 +1,303 @@
+/* Jakarta Witness — global styles
+ * Dark, restrained, monospace. No gradients, no soft shadows, no emoji. */
+
+:root {
+  --bg: #0a0a0a;
+  --grid: #1a1a1a;
+  --divider: #222222;
+  --text: #e8e8e8;
+  --dim: #777777;
+  --faint: #444444;
+
+  /* YOLO class palette — shared with the p5.js simulation */
+  --motorbike: #d4a574; /* amber   */
+  --car: #74c4d4;       /* cyan    */
+  --bus: #d474c4;       /* magenta */
+  --truck: #a5d474;     /* green   */
+  --person: #e8e8e8;    /* white   */
+
+  --mono: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, 'SFMono-Regular',
+    Menlo, Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The `hidden` attribute must win over the author `display` rules below
+ * (class selectors otherwise out-rank the UA [hidden] rule). */
+[hidden] {
+  display: none !important;
+}
+
+/* ---------- Loading + fallback screens ---------- */
+
+.loading-screen,
+.fallback-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+}
+
+.loading-inner,
+.fallback-inner {
+  width: min(560px, 80vw);
+  text-align: center;
+}
+
+.loading-title {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.32em;
+  color: var(--text);
+}
+
+.loading-subtitle {
+  margin-top: 14px;
+  font-size: 12px;
+  letter-spacing: 0.28em;
+  color: var(--dim);
+}
+
+.progress-track {
+  margin-top: 36px;
+  width: 100%;
+  height: 2px;
+  background: var(--divider);
+}
+
+.progress-bar {
+  height: 100%;
+  width: 0%;
+  background: var(--car);
+  transition: width 0.25s linear;
+}
+
+.loading-status {
+  margin-top: 16px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--dim);
+  min-height: 1.4em;
+}
+
+.fallback-message {
+  margin-top: 28px;
+  font-size: 14px;
+  line-height: 1.9;
+  color: var(--dim);
+}
+
+.fallback-message strong {
+  color: var(--text);
+  font-weight: 500;
+}
+
+/* ---------- Main artwork layout ---------- */
+
+.artwork {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+}
+
+.section {
+  position: relative;
+  overflow: hidden;
+}
+
+.section-reality {
+  flex: 45 1 0;
+}
+
+.section-thought {
+  flex: 25 1 0;
+}
+
+.section-reduction {
+  flex: 30 1 0;
+}
+
+.divider {
+  flex: 0 0 1px;
+  background: var(--divider);
+}
+
+.section-tag {
+  position: absolute;
+  left: 10px;
+  bottom: 8px;
+  font-size: 9px;
+  letter-spacing: 0.34em;
+  color: var(--faint);
+  pointer-events: none;
+  user-select: none;
+  z-index: 5;
+}
+
+/* ---------- TOP: Reality ---------- */
+
+.video-stage {
+  position: absolute;
+  inset: 0;
+  background: #000;
+}
+
+.traffic-video,
+.overlay-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.overlay-canvas {
+  pointer-events: none;
+}
+
+.counter-badges {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  z-index: 6;
+  display: flex;
+  gap: 14px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  background: rgba(10, 10, 10, 0.72);
+  border: 1px solid var(--divider);
+  padding: 7px 12px;
+}
+
+.counter-badge {
+  white-space: nowrap;
+}
+
+.counter-badge .count {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.counter-badge .label {
+  font-weight: 500;
+}
+
+/* ---------- MIDDLE: Thought ---------- */
+
+.section-thought {
+  display: flex;
+  align-items: center;
+}
+
+.thought-text {
+  width: 100%;
+  padding: 18px 40px;
+  font-size: clamp(13px, 1.45vw, 19px);
+  line-height: 1.7;
+}
+
+.thought-line {
+  margin: 4px 0;
+}
+
+.thought-key {
+  color: var(--dim);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.thought-observation .thought-body {
+  color: var(--text);
+}
+
+.thought-solution .thought-body {
+  color: var(--car);
+}
+
+.thought-caret {
+  display: inline-block;
+  width: 0.55em;
+  height: 1.05em;
+  margin-left: 2px;
+  background: var(--car);
+  vertical-align: text-bottom;
+  animation: blink 1s steps(1) infinite;
+}
+
+.thought-text.generating {
+  animation: pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.82;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* ---------- BOTTOM: Reduction ---------- */
+
+.simulation-container {
+  position: absolute;
+  inset: 0;
+  background: var(--bg);
+}
+
+.simulation-container canvas {
+  display: block;
+}
+
+/* ---------- State indicator (tiny, top-left) ---------- */
+
+.state-indicator {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  z-index: 6;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--dim);
+}
+
+.state-indicator .dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 7px;
+  background: var(--faint);
+  vertical-align: middle;
+}
+
+.state-indicator.active .dot {
+  background: var(--car);
+}

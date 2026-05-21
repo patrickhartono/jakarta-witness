@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+
+# Local env / editor
+.DS_Store
+*.local
+.vscode/
+.idea/
+
+# Visual reference asset — provided by user, not part of production build
+reference-tdyolo-style.png
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Original brief source (RTF) — keep the .md version in the repo instead
+PROJECT_BRIEF.md.rtf
+
+# Source-video staging + raw footage (the active video lives in public/video/)
+vids/
+vid-raw/
+
+# Internal end-to-end test harness — not part of the artwork
+_e2e-test.mjs
