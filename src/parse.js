@@ -223,3 +223,80 @@ export function extractSolution(text) {
   const m = prose.match(/PROPOSED SOLUTION:\s*([\s\S]*)$/i);
   return (m ? m[1] : prose).trim();
 }
+
+/* ---------- interventions (the THOUGHT -> REDUCTION bridge) ---------- */
+
+/* The discrete pieces of infrastructure the simulation can physically
+ * build. Each tag maps to a concrete drawing in simulation.js, so the
+ * LLM's proposed solution becomes a *visible structure* on the field
+ * rather than an abstract change in density. This is what closes the
+ * gap between what the machine says and what it shows. */
+export const INTERVENTIONS = [
+  'elevated',
+  'pedestrian_plaza',
+  'pedestrian_crossing',
+  'bus_lane',
+  'bike_lane',
+  'signal',
+  'checkpoint',
+];
+
+/** Human-readable names shown on the canvas legend + structure labels. */
+export const INTERVENTION_LABELS = {
+  elevated: 'ELEVATED THROUGH-ROUTE',
+  pedestrian_plaza: 'PEDESTRIAN PLAZA',
+  pedestrian_crossing: 'PEDESTRIAN CROSSING',
+  bus_lane: 'DEDICATED BUS LANE',
+  bike_lane: 'CYCLE LANE',
+  signal: 'ADAPTIVE SIGNAL',
+  checkpoint: 'ACCESS CHECKPOINT',
+};
+
+/* Each pattern is matched against the lower-cased PROPOSED SOLUTION
+ * prose. The vocabulary mirrors the few-shot examples in prompt.js so
+ * the LLM's own phrasing reliably triggers the matching structure. */
+const INTERVENTION_PATTERNS = [
+  ['bus_lane', /\bbus(?:\s|-)?(?:lane|way)|\bbrt\b|bus rapid|dedicated[\w\s]{0,18}bus|transit[\w\s]{0,8}lane/],
+  ['bike_lane', /\bcycl(?:e|ing)|\bbicycle|\bbike\b/],
+  ['pedestrian_plaza', /pedestrian[\w\s]{0,10}(?:zone|only|precinct|mall)|vehicle-free|car-free|fully pedestrian|reclassif/],
+  ['pedestrian_crossing', /pedestrian|crosswalk|cross-walk|crossing|footpath|sidewalk|pavement|walkway|footbridge|pedestrian refuge|on foot/],
+  ['elevated', /elevat|flyover|fly-over|overpass|viaduct|grade[- ]separat|above the existing|upper deck/],
+  ['signal', /signal|traffic light|green (?:duration|phase|time|band)|phase time|metering light|signalis|signaliz/],
+  ['checkpoint', /prohibit|restrict|\bban\b|barrier|\bquota|\bcap\b|capping|\bmeter|licen[cs]e|plate rotation|entry (?:quota|fee|permit|point)|congestion (?:charge|pricing|fee)|\btoll|delivery window|access control|checkpoint|gate/],
+];
+
+/**
+ * Derive the list of physical interventions to build on the simulation
+ * field, from the LLM's proposed-solution prose plus the structural
+ * params. Always returns at least one tag so the field is never bare.
+ * @param {string} solutionText  the PROPOSED SOLUTION prose
+ * @param {object} params        the parsed simulation params
+ * @returns {string[]}  ordered, de-duplicated, capped intervention tags
+ */
+export function deriveInterventions(solutionText = '', params = DEFAULT_PARAMS) {
+  const text = String(solutionText).toLowerCase();
+  const found = new Set();
+
+  for (const [tag, re] of INTERVENTION_PATTERNS) {
+    if (re.test(text)) found.add(tag);
+  }
+
+  // The structural params are ground truth — keep the field consistent
+  // with road_config / flow_speed even when the prose is keyword-poor.
+  if (params.road_config === 'elevated') found.add('elevated');
+  if (params.road_config === 'pedestrian_zone') found.add('pedestrian_plaza');
+  if (params.road_config === 'grid') found.add('signal');
+  if (params.flow_speed === 'blocked' || params.flow_speed === 'slow') {
+    found.add('checkpoint');
+  }
+
+  // A pedestrian plaza already is car-free ground — its own crossings
+  // would be redundant, so the broader plaza tag wins.
+  if (found.has('pedestrian_plaza')) found.delete('pedestrian_crossing');
+
+  // Never leave the field without a built solution.
+  if (found.size === 0) found.add('signal');
+
+  // Stable order, capped so the schematic stays legible.
+  return INTERVENTIONS.filter((t) => found.has(t)).slice(0, 4);
+}

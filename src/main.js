@@ -25,6 +25,7 @@ import {
   paramsFromCounts,
   buildObservation,
   extractSolution,
+  deriveInterventions,
 } from './parse.js';
 
 const VIDEO_SRC = `${import.meta.env.BASE_URL}video/jakarta.mp4`;
@@ -136,6 +137,30 @@ async function boot() {
   runCycle();
 }
 
+/* Jump the footage to a fresh random point. The witness samples the
+ * corridor non-linearly — every cycle observes a different stretch of
+ * the day rather than marching start-to-finish — so the artwork never
+ * repeats the same sequence. Resolves once the seek has landed. */
+function seekVideoRandom() {
+  const v = els.video;
+  const d = v.duration;
+  if (!Number.isFinite(d) || d <= 2) return Promise.resolve();
+  // leave a tail so the clip does not loop mid-detection
+  const target = Math.random() * Math.max(0.1, d - 5);
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      v.removeEventListener('seeked', finish);
+      resolve();
+    };
+    v.addEventListener('seeked', finish);
+    v.currentTime = target;
+    setTimeout(finish, 700); // safety: never stall the cycle on a slow seek
+  });
+}
+
 /* Load the video and resolve once a frame is decodable. */
 function loadVideo() {
   return new Promise((resolve, reject) => {
@@ -230,8 +255,9 @@ async function runCycle() {
   while (running) {
     await waitWhilePaused();
 
-    // IDLE — video plays, YOLO tracks live.
+    // IDLE — jump to a fresh random point, then play while YOLO tracks live.
     setStateIndicator('IDLE', false);
+    await seekVideoRandom();
     try {
       await els.video.play();
     } catch {
@@ -275,6 +301,11 @@ async function runCycle() {
     if (!ok) {
       console.warn('[cycle] LLM JSON unusable — using detection-derived params');
     }
+
+    // Bridge THOUGHT -> REDUCTION: read the concrete infrastructure out
+    // of the proposed solution so the p5.js field physically builds it.
+    params.interventions = deriveInterventions(extractSolution(finalText), params);
+    console.log('[cycle] interventions built:', params.interventions);
 
     // SIMULATING — the p5.js field fades to the new reduced state.
     setStateIndicator('SIMULATING', true);
