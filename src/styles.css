@@ -270,11 +270,17 @@ body {
 .simulation-container {
   position: absolute;
   inset: 0;
-  background: var(--bg);
+  background: #ffffff; /* light field — matches the p5.js THEME background */
 }
 
 .simulation-container canvas {
   display: block;
+}
+
+/* The REDUCTION tag floats over the now-light canvas; the dark --faint
+ * default reads as harsh black-on-white. A mid-gray keeps it quiet. */
+.section-reduction .section-tag {
+  color: #9a9a9a;
 }
 
 /* ---------- State indicator (tiny, top-left) ---------- */

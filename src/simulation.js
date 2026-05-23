@@ -1,47 +1,93 @@
 /* simulation.js — the BOTTOM section: a p5.js (instance mode) 2D rendering
- * of the AI's reduced mental model of Jakarta. Vintage-game / schematic
- * aesthetic: black field, faint grid, colored rectangles, stepped
- * pixel-aligned movement, no collision resolution (overlap is intentional).
+ * of the AI's reduced mental model of Jakarta. Schematic / blueprint
+ * aesthetic on a white field: dark asphalt strips on paper, colored
+ * rectangles for vehicles, stepped pixel-aligned movement, no collision
+ * resolution (overlap is intentional).
  *
  * This layer does not just abstractly reduce density — it physically
- * BUILDS the LLM's proposed solution. Each intervention tag (derived from
- * the PROPOSED SOLUTION prose in parse.js) maps to a concrete piece of
- * infrastructure drawn on the field: a labelled pedestrian crossing, a
- * dedicated bus lane, a cycle lane, an adaptive signal that holds queues,
- * an access checkpoint that turns vehicles away, an elevated deck, a
- * pedestrian plaza. The proposed solution becomes visible, not implied.
+ * BUILDS the LLM's proposed solution. Each intervention tag (derived
+ * from the PROPOSED SOLUTION prose in parse.js) maps to a concrete
+ * piece of infrastructure drawn on the field: a labelled pedestrian
+ * crossing, a dedicated bus lane, a cycle lane, an adaptive signal that
+ * holds queues, an access checkpoint that turns vehicles away, an
+ * elevated deck, a pedestrian plaza.
+ *
+ * All canvas colors flow through the THEME palette below — a future
+ * dark/light toggle would only swap THEME, not rewrite drawing code.
  *
  * createSimulation(container) -> { updateParams, pause, resume, destroy } */
 
 import p5 from 'p5';
 import { DEFAULT_PARAMS, INTERVENTION_LABELS } from './parse.js';
 
+// Vehicle / walker palette — readable on both dark and light fields.
 const COLORS = {
   car: '#74c4d4',
   motorbike: '#d4a574',
   bus: '#d474c4',
-  pedestrian: '#e8e8e8',
+  pedestrian: '#2a2a2a', // dark dot — must contrast the white field
   cyclist: '#7ad47a',
 };
 
-// Intervention palette + the swatch colour shown in the on-field legend.
-const IV = {
+/* Every color the canvas paints. The light theme is tuned to read as a
+ * technical drawing on white paper: dark asphalt against the page, mid-
+ * gray grid, warm-concrete sidewalks and plaza, dark text. */
+const THEME = {
+  background: '#ffffff',
+  backgroundRGB: [255, 255, 255], // used for the fade overlay (needs alpha)
+  grid: '#e4e4e4',
+
+  roadFill: '#2a2a2a',
+  roadStroke: '#9a9a9a',
+  centerline: '#8a8a8a',
+  elevatedStroke: '#6a6a6a',
+  elevatedShadow: '#bcbcbc',
+
+  agentOutline: '#0a0a0a',
+
+  sidewalkFill: '#c9c5b9',
+  sidewalkCurb: '#7a7a7a',
+  sidewalkTicks: '#b0aca2',
+
+  crossingPatch: '#1f1f1f', // sits on the dark asphalt
+  zebraStripe: '#f0f0f0',
+
+  plazaGround: '#e8e3d3',
+  plazaTile: '#d4cfc0',
+  plazaPath: '#dcd6c5',
+  plazaBorder: '#a8a39a',
+  treeOuter: '#34502d',
+  treeInner: '#4f7a44',
+
   signalRed: '#e0564b',
   signalAmber: '#e0b34b',
   signalGreen: '#5fce6f',
-  busLane: '#d474c4',
-  bikeLane: '#7ad47a',
-  checkpoint: '#d4b24b',
-  label: '#6f6f6f',
-};
-const LEGEND_COLOR = {
-  pedestrian_crossing: '#d2d2d2',
-  bus_lane: '#d474c4',
-  bike_lane: '#7ad47a',
-  signal: '#5fce6f',
-  checkpoint: '#d4b24b',
-  elevated: '#9a9a9a',
-  pedestrian_plaza: '#cfcfcf',
+  signalHousing: '#161616',
+  signalHousingStroke: '#444444',
+  signalUnlit: '#2a2a2a',
+  signalStopLine: '#cfcfcf', // on dark asphalt; stays light
+
+  busLaneFill: 'rgba(212, 116, 196, 0.16)',
+  busLaneFillRGBA: [212, 116, 196, 40],
+  busLaneStrokeRGBA: [212, 116, 196, 160],
+  bikeLaneFillRGBA: [122, 212, 122, 48],
+  bikeLaneStrokeRGBA: [122, 212, 122, 170],
+
+  checkpointBooth: '#2a2a2a',
+  checkpointBarrier: '#d4b24b',
+  checkpointHatch: '#0a0a0a',
+  rejectedFill: '#3a3a3a',
+  rejectedX: '#e0564b',
+  elevatedDeckFill: '#181818',
+
+  legendBoxRGBA: [255, 255, 255, 220],
+  legendBorder: '#bcbcbc',
+  legendTitle: '#6a6a6a',
+  legendItem: '#1c1c1c',
+  legendFallbackSwatch: '#888888',
+
+  labelText: '#3a3a3a',
+  labelShadow: '#ffffff',
 };
 
 // total_density -> number of agents on the field
@@ -54,6 +100,16 @@ const CLASS_SPEC = {
   car: { mul: 1.0, len: 16, wid: 10 },
   bus: { mul: 0.65, len: 28, wid: 12 },
   pedestrian: { mul: 0.34, len: 5, wid: 5 },
+};
+
+const LEGEND_COLOR = {
+  pedestrian_crossing: '#5a5a5a',
+  bus_lane: '#d474c4',
+  bike_lane: '#7ad47a',
+  signal: '#5fce6f',
+  checkpoint: '#d4b24b',
+  elevated: '#6a6a6a',
+  pedestrian_plaza: '#a8a39a',
 };
 
 const EMPTY_IV = {
@@ -494,7 +550,7 @@ export function createSimulation(container) {
   let curH = 1;
 
   function drawGrid(p) {
-    p.stroke('#1a1a1a');
+    p.stroke(THEME.grid);
     p.strokeWeight(1);
     for (let x = 0; x < p.width; x += 24) p.line(x, 0, x, p.height);
     for (let y = 0; y < p.height; y += 24) p.line(0, y, p.width, y);
@@ -504,27 +560,27 @@ export function createSimulation(container) {
     const z = iv.plaza;
     if (!z) return;
     p.noStroke();
-    p.fill('#1f1d19');
+    p.fill(THEME.plazaGround);
     p.rect(z.x | 0, z.y | 0, z.w | 0, z.h | 0);
     // paving tiles
-    p.stroke('#2a2722');
+    p.stroke(THEME.plazaTile);
     p.strokeWeight(1);
     for (let x = z.x; x < z.x + z.w; x += 22) p.line(x, z.y, x, z.y + z.h);
     for (let y = z.y; y < z.y + z.h; y += 22) p.line(z.x, y, z.x + z.w, y);
     // cross paths
     p.noStroke();
-    p.fill('#2e2b25');
+    p.fill(THEME.plazaPath);
     p.rect(z.x, (z.y + z.h / 2 - 8) | 0, z.w, 16);
     p.rect((z.x + z.w / 2 - 8) | 0, z.y, 16, z.h);
     // trees
     for (const t of z.trees) {
-      p.fill('#34502d');
+      p.fill(THEME.treeOuter);
       p.circle(t.x, t.y, 12);
-      p.fill('#4f7a44');
+      p.fill(THEME.treeInner);
       p.circle(t.x - 1, t.y - 1, 6);
     }
     p.noFill();
-    p.stroke('#454545');
+    p.stroke(THEME.plazaBorder);
     p.strokeWeight(1);
     p.rect(z.x | 0, z.y | 0, z.w | 0, z.h | 0);
   }
@@ -532,14 +588,14 @@ export function createSimulation(container) {
   function drawRoads(p) {
     for (const r of roads) {
       p.noStroke();
-      p.fill('#141414');
+      p.fill(THEME.roadFill);
       p.rect(r.x | 0, r.y | 0, r.w | 0, r.h | 0);
-      p.stroke(r.elevated ? '#6a6a6a' : '#444444');
+      p.stroke(r.elevated ? THEME.elevatedStroke : THEME.roadStroke);
       p.strokeWeight(1);
       p.noFill();
       p.rect(r.x | 0, r.y | 0, r.w | 0, r.h | 0);
       // dashed centerline
-      p.stroke('#444444');
+      p.stroke(THEME.centerline);
       if (r.axis === 'h') {
         const cy = (r.y + r.h / 2) | 0;
         for (let x = 0; x < r.w; x += 22) p.line(x, cy, x + 11, cy);
@@ -548,7 +604,7 @@ export function createSimulation(container) {
         for (let y = 0; y < r.h; y += 22) p.line(cx, y, cx, y + 11);
       }
       if (r.elevated) {
-        p.stroke('#222222');
+        p.stroke(THEME.elevatedShadow);
         p.line(r.x, (r.y + r.h + 6) | 0, r.x + r.w, (r.y + r.h + 6) | 0);
       }
     }
@@ -559,13 +615,13 @@ export function createSimulation(container) {
     if (!e || !e.deck) return;
     const d = e.deck;
     p.noStroke();
-    p.fill('#181818');
+    p.fill(THEME.elevatedDeckFill);
     p.rect(d.x | 0, d.y | 0, d.w | 0, d.h | 0);
-    p.stroke('#6a6a6a');
+    p.stroke(THEME.elevatedStroke);
     p.strokeWeight(1);
     p.noFill();
     p.rect(d.x | 0, d.y | 0, d.w | 0, d.h | 0);
-    p.stroke('#222222');
+    p.stroke(THEME.elevatedShadow);
     p.line(d.x, (d.y + d.h + 6) | 0, d.x + d.w, (d.y + d.h + 6) | 0);
   }
 
@@ -573,18 +629,18 @@ export function createSimulation(container) {
     const b = iv.busLane;
     if (b) {
       p.noStroke();
-      p.fill(212, 116, 196, 40);
+      p.fill(...THEME.busLaneFillRGBA);
       p.rect(b.x | 0, b.y | 0, b.w | 0, b.h | 0);
-      p.stroke(212, 116, 196, 160);
+      p.stroke(...THEME.busLaneStrokeRGBA);
       p.strokeWeight(1);
       for (let x = b.x; x < b.x + b.w; x += 16) p.line(x, b.y | 0, x + 8, b.y | 0);
     }
     const k = iv.bikeLane;
     if (k) {
       p.noStroke();
-      p.fill(122, 212, 122, 48);
+      p.fill(...THEME.bikeLaneFillRGBA);
       p.rect(k.x | 0, k.y | 0, k.w | 0, k.h | 0);
-      p.stroke(122, 212, 122, 170);
+      p.stroke(...THEME.bikeLaneStrokeRGBA);
       p.strokeWeight(1);
       const ey = (k.y + k.h) | 0;
       for (let x = k.x; x < k.x + k.w; x += 16) p.line(x, ey, x + 8, ey);
@@ -594,20 +650,20 @@ export function createSimulation(container) {
   function drawSidewalks(p) {
     for (const s of iv.sidewalks) {
       p.noStroke();
-      p.fill('#2c2c2c');
+      p.fill(THEME.sidewalkFill);
       p.rect(s.x | 0, s.y | 0, s.w | 0, s.h | 0);
-      p.stroke('#555555');
+      p.stroke(THEME.sidewalkCurb);
       p.strokeWeight(1);
       const cy = (s.side === 'top' ? s.y + s.h : s.y) | 0;
       p.line(s.x, cy, s.x + s.w, cy);
-      p.stroke('#383838');
+      p.stroke(THEME.sidewalkTicks);
       for (let x = s.x; x < s.x + s.w; x += 10) p.line(x, s.y, x, s.y + s.h);
     }
     for (const c of iv.crossings) {
       p.noStroke();
-      p.fill('#1c1c1c');
+      p.fill(THEME.crossingPatch);
       p.rect(c.x | 0, c.y | 0, c.w | 0, c.h | 0);
-      p.fill('#d2d2d2');
+      p.fill(THEME.zebraStripe);
       for (let y = c.y + 3; y < c.y + c.h - 3; y += 8) {
         p.rect((c.x + 2) | 0, y | 0, (c.w - 4) | 0, 4);
       }
@@ -619,21 +675,21 @@ export function createSimulation(container) {
     if (!c) return;
     const x = c.x | 0;
     p.noStroke();
-    p.fill('#2a2a2a');
+    p.fill(THEME.checkpointBooth);
     p.rect(x - 7, (c.roadY - 4) | 0, 14, (c.roadH + 8) | 0);
-    p.stroke(IV.checkpoint);
+    p.stroke(THEME.checkpointBarrier);
     p.strokeWeight(3);
     p.line(x, c.roadY + 2, x, c.roadY + c.roadH - 2);
-    p.stroke('#0a0a0a');
+    p.stroke(THEME.checkpointHatch);
     p.strokeWeight(1);
     for (let y = c.roadY + 3; y < c.roadY + c.roadH - 3; y += 8) {
       p.line(x - 2, y, x + 2, y);
     }
     for (const r of c.rejected) {
       p.noStroke();
-      p.fill('#3a3a3a');
+      p.fill(THEME.rejectedFill);
       p.rect(r.x | 0, r.y | 0, 14, 9);
-      p.stroke(IV.signalRed);
+      p.stroke(THEME.rejectedX);
       p.strokeWeight(1.4);
       p.line(r.x, r.y, r.x + 14, r.y + 9);
       p.line(r.x + 14, r.y, r.x, r.y + 9);
@@ -658,7 +714,7 @@ export function createSimulation(container) {
         y = a.y | 0;
       }
       p.fill(a.color);
-      p.stroke('#0a0a0a');
+      p.stroke(THEME.agentOutline);
       p.rect(x, y, a.w, a.h);
     }
   }
@@ -674,28 +730,28 @@ export function createSimulation(container) {
       const st = signalState(sig);
       const sx = (sig.roadX + sig.stopAlong) | 0;
       // stop line
-      p.stroke('#cfcfcf');
+      p.stroke(THEME.signalStopLine);
       p.strokeWeight(2);
       p.line(sx, sig.roadY + 2, sx, sig.roadY + sig.roadH - 2);
       // pole
       const fx = sx - 4;
       const fy = (sig.roadY - 32) | 0;
-      p.stroke('#444444');
+      p.stroke(THEME.signalHousingStroke);
       p.strokeWeight(1);
       p.line(fx + 4.5, fy + 26, fx + 4.5, sig.roadY);
       // housing
-      p.fill('#161616');
-      p.stroke('#444444');
+      p.fill(THEME.signalHousing);
+      p.stroke(THEME.signalHousingStroke);
       p.rect(fx, fy, 9, 26);
       // lamps
       p.noStroke();
       const lamp = (col, on, i) => {
-        p.fill(on ? col : '#2a2a2a');
+        p.fill(on ? col : THEME.signalUnlit);
         p.circle(fx + 4.5, fy + 6 + i * 8, on ? 6 : 4.2);
       };
-      lamp(IV.signalRed, st === 'red', 0);
-      lamp(IV.signalAmber, st === 'amber', 1);
-      lamp(IV.signalGreen, st === 'green', 2);
+      lamp(THEME.signalRed, st === 'red', 0);
+      lamp(THEME.signalAmber, st === 'amber', 1);
+      lamp(THEME.signalGreen, st === 'green', 2);
     }
   }
 
@@ -703,9 +759,9 @@ export function createSimulation(container) {
     p.textSize(8);
     p.textAlign(p.LEFT, align);
     p.noStroke();
-    p.fill('#0a0a0a');
+    p.fill(THEME.labelShadow);
     p.text(text, x + 1, y + 1);
-    p.fill(IV.label);
+    p.fill(THEME.labelText);
     p.text(text, x, y);
   }
 
@@ -743,22 +799,22 @@ export function createSimulation(container) {
     const boxW = 198;
     const boxH = pad * 2 + 13 + items.length * lh;
     p.noStroke();
-    p.fill(10, 10, 10, 215);
+    p.fill(...THEME.legendBoxRGBA);
     p.rect(6, 6, boxW, boxH);
-    p.stroke('#333333');
+    p.stroke(THEME.legendBorder);
     p.strokeWeight(1);
     p.noFill();
     p.rect(6, 6, boxW, boxH);
     p.noStroke();
     p.textSize(8.5);
     p.textAlign(p.LEFT, p.TOP);
-    p.fill('#7a7a7a');
+    p.fill(THEME.legendTitle);
     p.text('SOLUTION BUILT ON FIELD', 6 + pad, 6 + pad);
     items.forEach((t, i) => {
       const y = 6 + pad + 14 + i * lh;
-      p.fill(LEGEND_COLOR[t] || '#888888');
+      p.fill(LEGEND_COLOR[t] || THEME.legendFallbackSwatch);
       p.rect(6 + pad, y + 1, 7, 7);
-      p.fill('#cfcfcf');
+      p.fill(THEME.legendItem);
       p.text(INTERVENTION_LABELS[t] || t, 6 + pad + 13, y);
     });
   }
@@ -793,7 +849,7 @@ export function createSimulation(container) {
         sceneAlpha = Math.min(1, sceneAlpha + 0.06);
       }
 
-      p.background('#0a0a0a');
+      p.background(THEME.background);
       drawGrid(p);
       drawPlaza(p);
       drawElevatedDeck(p);
@@ -814,7 +870,8 @@ export function createSimulation(container) {
 
       if (sceneAlpha < 1) {
         p.noStroke();
-        p.fill(10, 10, 10, (1 - sceneAlpha) * 255);
+        const [r, g, b] = THEME.backgroundRGB;
+        p.fill(r, g, b, (1 - sceneAlpha) * 255);
         p.rect(0, 0, p.width, p.height);
       }
     };
