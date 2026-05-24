@@ -29,3 +29,5 @@ vid-raw/
 
 # Internal end-to-end test harness — not part of the artwork
 _e2e-test.mjs
+_viz-shot.mjs
+sim-test.html

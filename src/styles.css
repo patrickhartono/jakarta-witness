@@ -127,15 +127,15 @@ body {
 }
 
 .section-reality {
-  flex: 45 1 0;
+  flex: var(--flex-reality, 45) 1 0;
 }
 
 .section-thought {
-  flex: 25 1 0;
+  flex: var(--flex-thought, 25) 1 0;
 }
 
 .section-reduction {
-  flex: 30 1 0;
+  flex: var(--flex-reduction, 30) 1 0;
 }
 
 .divider {
@@ -147,9 +147,11 @@ body {
   position: absolute;
   left: 10px;
   bottom: 8px;
-  font-size: 9px;
+  font-size: clamp(10px, 1.1vmin, 12px);
   letter-spacing: 0.34em;
-  color: var(--faint);
+  color: #ffffff;
+  background: rgba(10, 10, 10, 0.55);
+  padding: 3px 8px;
   pointer-events: none;
   user-select: none;
   z-index: 5;
@@ -182,12 +184,12 @@ body {
   right: 14px;
   z-index: 6;
   display: flex;
-  gap: 14px;
-  font-size: 12px;
+  gap: clamp(10px, 1.5vmin, 16px);
+  font-size: clamp(12px, 1.4vmin, 14px);
   letter-spacing: 0.06em;
   background: rgba(10, 10, 10, 0.72);
   border: 1px solid var(--divider);
-  padding: 7px 12px;
+  padding: clamp(6px, 0.8vmin, 9px) clamp(10px, 1.3vmin, 14px);
 }
 
 .counter-badge {
@@ -212,8 +214,8 @@ body {
 
 .thought-text {
   width: 100%;
-  padding: 18px 40px;
-  font-size: clamp(13px, 1.45vw, 19px);
+  padding: clamp(14px, 1.8vmin, 22px) clamp(20px, 3vmin, 44px);
+  font-size: clamp(14px, 2vmin, 22px);
   line-height: 1.7;
 }
 
@@ -277,11 +279,9 @@ body {
   display: block;
 }
 
-/* The REDUCTION tag floats over the now-light canvas; the dark --faint
- * default reads as harsh black-on-white. A mid-gray keeps it quiet. */
-.section-reduction .section-tag {
-  color: #9a9a9a;
-}
+/* REDUCTION tag matches the other two — white text on dark pill — to keep
+ * the visual rhythm uniform across all three sections, even on the white
+ * canvas. */
 
 /* ---------- State indicator (tiny, top-left) ---------- */
 
@@ -290,9 +290,11 @@ body {
   top: 12px;
   left: 14px;
   z-index: 6;
-  font-size: 10px;
+  font-size: clamp(11px, 1.2vmin, 13px);
   letter-spacing: 0.22em;
-  color: var(--dim);
+  color: var(--text);
+  background: rgba(10, 10, 10, 0.55);
+  padding: 4px 9px;
 }
 
 .state-indicator .dot {
@@ -306,4 +308,34 @@ body {
 
 .state-indicator.active .dot {
   background: var(--car);
+}
+
+/* ---------- Portrait orientation tuning ----------
+ * Primary target: vertical installation at 1080×1920 (9:16).
+ * Fluid fallback: layout still works on any viewport. */
+
+@media (orientation: portrait) {
+  .thought-text {
+    line-height: 1.6;
+  }
+
+  .counter-badges {
+    top: clamp(10px, 1.4vmin, 18px);
+    right: clamp(10px, 1.4vmin, 18px);
+  }
+
+  .state-indicator {
+    top: clamp(10px, 1.4vmin, 18px);
+    left: clamp(12px, 1.6vmin, 20px);
+  }
+}
+
+/* Narrow portrait (9:16 and taller) — give simulation field more room
+ * and let THOUGHT breathe vertically. */
+@media (orientation: portrait) and (max-aspect-ratio: 3 / 4) {
+  :root {
+    --flex-reality: 42;
+    --flex-thought: 26;
+    --flex-reduction: 32;
+  }
 }

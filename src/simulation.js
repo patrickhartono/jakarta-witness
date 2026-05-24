@@ -80,13 +80,13 @@ const THEME = {
   rejectedX: '#e0564b',
   elevatedDeckFill: '#181818',
 
-  legendBoxRGBA: [255, 255, 255, 220],
-  legendBorder: '#bcbcbc',
-  legendTitle: '#6a6a6a',
+  legendBoxRGBA: [255, 255, 255, 255],
+  legendBorder: '#888888',
+  legendTitle: '#3a3a3a',
   legendItem: '#1c1c1c',
   legendFallbackSwatch: '#888888',
 
-  labelText: '#3a3a3a',
+  labelText: '#1a1a1a',
   labelShadow: '#ffffff',
 };
 
@@ -122,7 +122,21 @@ const EMPTY_IV = {
   checkpoint: null,
   elevated: null,
   plaza: null,
+  legendBox: null,
 };
+
+/* Adaptive legend dimensions — shrink on narrow canvases so labels still
+ * have room to live around it. Used by both buildInterventions (for the
+ * collision bbox) and drawLegend (for the actual rendering). */
+function getLegendDims(width) {
+  if (width >= 800) {
+    return { textSize: 11, pad: 8, lh: 17, boxW: 232, swatch: 9 };
+  }
+  if (width >= 500) {
+    return { textSize: 10, pad: 7, lh: 15, boxW: 200, swatch: 8 };
+  }
+  return { textSize: 9, pad: 6, lh: 13, boxW: 170, swatch: 7 };
+}
 
 export function createSimulation(container) {
   let params = structuredClone(DEFAULT_PARAMS);
@@ -258,6 +272,15 @@ export function createSimulation(container) {
           y: pad + 14 + Math.random() * (H - pad * 2 - 28),
         })),
       };
+    }
+
+    // legend bbox — used by label() to avoid overlap. Mirrors drawLegend().
+    if (out.active.length) {
+      const d = getLegendDims(W);
+      const boxH = d.pad * 2 + d.lh + out.active.length * d.lh;
+      out.legendBox = { x: 6, y: 6, w: d.boxW, h: boxH };
+    } else {
+      out.legendBox = null;
     }
 
     return out;
@@ -755,8 +778,37 @@ export function createSimulation(container) {
     }
   }
 
+  // Per-frame counter of labels relocated below the legend, so they
+  // stack vertically instead of all landing on the same y.
+  let legendStackCount = 0;
+
   function label(p, text, x, y, align) {
-    p.textSize(8);
+    // Clamp left edge so labels do not clip outside the canvas.
+    x = Math.max(4, x);
+
+    // Collision avoidance vs the legend box. If this label would land on
+    // top of (or behind) the legend, push it below the legend, top-aligned,
+    // and stack subsequent collisions further down.
+    const lb = iv.legendBox;
+    if (lb) {
+      const tw = text.length * 7; // mono ~7px/char at textSize 11
+      const th = 14;
+      const yTop = align === p.BOTTOM ? y - th : y;
+      const yBot = yTop + th;
+      const overlaps =
+        x < lb.x + lb.w + 4 &&
+        x + tw > lb.x - 4 &&
+        yTop < lb.y + lb.h + 4 &&
+        yBot > lb.y - 4;
+      if (overlaps) {
+        y = lb.y + lb.h + 12 + legendStackCount * (th + 4);
+        x = lb.x; // align to legend left edge for a clean column
+        align = p.TOP;
+        legendStackCount++;
+      }
+    }
+
+    p.textSize(11);
     p.textAlign(p.LEFT, align);
     p.noStroke();
     p.fill(THEME.labelShadow);
@@ -766,6 +818,7 @@ export function createSimulation(container) {
   }
 
   function drawLabels(p) {
+    legendStackCount = 0;
     if (iv.busLane) {
       label(p, 'BUS LANE', iv.busLane.x + 5, iv.busLane.y + iv.busLane.h - 3, p.BOTTOM);
     }
@@ -794,28 +847,26 @@ export function createSimulation(container) {
   function drawLegend(p) {
     const items = iv.active;
     if (!items.length) return;
-    const pad = 7;
-    const lh = 13;
-    const boxW = 198;
-    const boxH = pad * 2 + 13 + items.length * lh;
+    const d = getLegendDims(p.width);
+    const boxH = d.pad * 2 + d.lh + items.length * d.lh;
     p.noStroke();
     p.fill(...THEME.legendBoxRGBA);
-    p.rect(6, 6, boxW, boxH);
+    p.rect(6, 6, d.boxW, boxH);
     p.stroke(THEME.legendBorder);
     p.strokeWeight(1);
     p.noFill();
-    p.rect(6, 6, boxW, boxH);
+    p.rect(6, 6, d.boxW, boxH);
     p.noStroke();
-    p.textSize(8.5);
+    p.textSize(d.textSize);
     p.textAlign(p.LEFT, p.TOP);
     p.fill(THEME.legendTitle);
-    p.text('SOLUTION BUILT ON FIELD', 6 + pad, 6 + pad);
+    p.text('SOLUTION BUILT ON FIELD', 6 + d.pad, 6 + d.pad);
     items.forEach((t, i) => {
-      const y = 6 + pad + 14 + i * lh;
+      const y = 6 + d.pad + d.lh + 1 + i * d.lh;
       p.fill(LEGEND_COLOR[t] || THEME.legendFallbackSwatch);
-      p.rect(6 + pad, y + 1, 7, 7);
+      p.rect(6 + d.pad, y + 2, d.swatch, d.swatch);
       p.fill(THEME.legendItem);
-      p.text(INTERVENTION_LABELS[t] || t, 6 + pad + 13, y);
+      p.text(INTERVENTION_LABELS[t] || t, 6 + d.pad + d.swatch + 6, y);
     });
   }
 
