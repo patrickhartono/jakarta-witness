@@ -1,9 +1,9 @@
 import { defineConfig } from 'vite';
 
-// GitHub Pages serves this project at https://patrickhartono.github.io/jakarta-witness/
-// so the production build needs the repo name as base path. Local dev stays at root.
-export default defineConfig(({ command }) => ({
-  base: command === 'build' ? '/jakarta-witness/' : '/',
+// Served at https://jakarta-witness.com via a custom apex domain on
+// GitHub Pages (CNAME in public/), so the production base path is root.
+export default defineConfig(() => ({
+  base: '/',
   server: {
     port: 5173,
     open: true,
