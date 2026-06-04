@@ -144,3 +144,59 @@ export function setStateIndicator(stateName, active) {
   const label = el.querySelector('.state-label');
   if (label) label.textContent = stateName;
 }
+
+/* ---------- Fullscreen toggle (button + F key) ---------- */
+
+/* Cross-browser shims: Safari still ships the webkit-prefixed Fullscreen API. */
+const fsElement = () =>
+  document.fullscreenElement || document.webkitFullscreenElement || null;
+
+function requestFS(el) {
+  const fn = el.requestFullscreen || el.webkitRequestFullscreen;
+  return fn ? fn.call(el) : undefined;
+}
+
+function exitFS() {
+  const fn = document.exitFullscreen || document.webkitExitFullscreen;
+  return fn ? fn.call(document) : undefined;
+}
+
+/* Fullscreen the whole document so all three sections fill the screen and
+ * the browser chrome drops away — the intended exhibition / kiosk view. */
+function toggleFullscreen() {
+  try {
+    if (fsElement()) {
+      exitFS();
+    } else {
+      // requestFullscreen rejects without a user gesture; swallow that.
+      Promise.resolve(requestFS(document.documentElement)).catch(() => {});
+    }
+  } catch (err) {
+    console.warn('[fullscreen] toggle failed:', err);
+  }
+}
+
+/**
+ * Wire the `F` key to toggle fullscreen, plus a fullscreenchange listener
+ * that keeps a body class in sync (e.g. when exiting via Esc). No on-screen
+ * control — the artwork stays uncluttered. Safe to call before it shows.
+ */
+export function initFullscreen() {
+  const sync = () => {
+    document.body.classList.toggle('is-fullscreen', !!fsElement());
+  };
+
+  // `F` toggles; bare key only, so browser shortcuts (⌘F / Ctrl+F) are untouched.
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'f' && e.key !== 'F') return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const tag = e.target?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target?.isContentEditable) return;
+    e.preventDefault();
+    toggleFullscreen();
+  });
+
+  document.addEventListener('fullscreenchange', sync);
+  document.addEventListener('webkitfullscreenchange', sync);
+  sync();
+}

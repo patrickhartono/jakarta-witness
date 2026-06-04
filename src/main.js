@@ -16,6 +16,7 @@ import {
   renderThought,
   initStateIndicator,
   setStateIndicator,
+  initFullscreen,
 } from './ui.js';
 import { YoloDetector, drawOverlay } from './yolo.js';
 import { LLM } from './llm.js';
@@ -83,6 +84,7 @@ document.addEventListener('visibilitychange', () => {
 
 async function boot() {
   initStateIndicator();
+  initFullscreen();
 
   setLoadingStatus('Detecting hardware capabilities…');
   if (!(await detectWebGPU())) {
